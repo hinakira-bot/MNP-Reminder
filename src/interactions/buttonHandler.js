@@ -1,0 +1,83 @@
+import { config } from '../config.js';
+import { logger } from '../utils/logger.js';
+import * as memberRepo from '../database/repositories/memberRepository.js';
+import * as practiceRepo from '../database/repositories/practiceRepository.js';
+import * as settingsRepo from '../database/repositories/settingsRepository.js';
+
+export async function handleButton(interaction) {
+  const { customId, guildId, user } = interaction;
+
+  if (customId === 'mnp_learning_complete') {
+    return handleLearning(interaction, guildId, user);
+  }
+
+  if (customId === 'mnp_practice_complete') {
+    return handlePractice(interaction, guildId, user);
+  }
+}
+
+async function handleLearning(interaction, guildId, user) {
+  // Cooldown check
+  const last = practiceRepo.getLastAction(guildId, user.id, 'learning');
+  if (last) {
+    const elapsed = (Date.now() - new Date(last.practiced_at + 'Z').getTime()) / 1000;
+    if (elapsed < config.buttonCooldownSeconds) {
+      return interaction.reply({ content: '📖 既に記録済みです！', ephemeral: true });
+    }
+  }
+
+  // Auto-register
+  memberRepo.register(guildId, user.id, user.displayName || user.username);
+
+  // Record learning
+  practiceRepo.recordAction(guildId, user.id, 'learning');
+  const count = practiceRepo.getMonthlyCount(guildId, user.id, 'learning');
+
+  logger.info(`学習記録: ${user.username} (${guildId})`);
+
+  return interaction.reply({
+    content: `📖 **学習完了を記録しました！**\n今月の学習回数: **${count}回**\n\n次は実践です！店舗でMNP契約をしたら「実践完了！」ボタンを押してくださいね。`,
+    ephemeral: true,
+  });
+}
+
+async function handlePractice(interaction, guildId, user) {
+  // Cooldown check
+  const last = practiceRepo.getLastAction(guildId, user.id, 'practice');
+  if (last) {
+    const elapsed = (Date.now() - new Date(last.practiced_at + 'Z').getTime()) / 1000;
+    if (elapsed < config.buttonCooldownSeconds) {
+      return interaction.reply({ content: '🎯 既に記録済みです！', ephemeral: true });
+    }
+  }
+
+  // Auto-register
+  memberRepo.register(guildId, user.id, user.displayName || user.username);
+
+  // Record practice
+  practiceRepo.recordAction(guildId, user.id, 'practice');
+  const count = practiceRepo.getMonthlyCount(guildId, user.id, 'practice');
+  const totalCount = practiceRepo.getActionCount(guildId, user.id, 'practice');
+
+  logger.info(`実践記録: ${user.username} (${guildId})`);
+
+  // Ephemeral confirmation to the user
+  await interaction.reply({
+    content: `🎯 **実践完了を記録しました！お疲れ様です！**\n今月の実践回数: **${count}回** ／ 累計: **${totalCount}回**`,
+    ephemeral: true,
+  });
+
+  // Public celebration in report channel (or fallback to same channel)
+  try {
+    const settings = settingsRepo.getSettings(guildId);
+    let reportChannel = interaction.channel;
+    if (settings.report_channel_id) {
+      reportChannel = await interaction.client.channels.fetch(settings.report_channel_id).catch(() => interaction.channel);
+    }
+    await reportChannel.send({
+      content: `🎉 **${user.displayName || user.username}** さんがMNP実践を完了しました！（累計 ${totalCount}回目）`,
+    });
+  } catch (err) {
+    logger.warn(`公開メッセージ送信失敗: ${err.message}`);
+  }
+}
