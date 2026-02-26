@@ -47,36 +47,60 @@ export function buildStatsEmbed(title, description, fields = []) {
   return embed;
 }
 
-export function buildReminderEmbed(inactiveMembers, thresholdDays) {
-  const lines = inactiveMembers.map((m) => {
-    if (m.last_practice) {
-      return `<@${m.user_id}> - 最後の実践: ${m.days_ago}日前`;
-    }
-    if (m.last_learning) {
-      return `<@${m.user_id}> - 学習済み（${m.learning_days_ago}日前）、まだ実践なし`;
-    }
-    return `<@${m.user_id}> - まだ記録がありません`;
-  });
+/**
+ * パターン1: 学習も実践もしていない（未着手メンバー）
+ */
+export function buildNotStartedReminderEmbed(members, thresholdDays) {
+  const lines = members.map((m) =>
+    `<@${m.user_id}> - 参加から${m.days_since_join}日経過`
+  );
 
   return new EmbedBuilder()
-    .setTitle('📢 実践リマインダー')
+    .setTitle('📖 学習リマインダー')
     .setDescription(
-      `以下のメンバーが **${thresholdDays}日以上** 実践を記録していません：\n\n` +
+      `以下のメンバーがまだ学習を始めていません：\n\n` +
       lines.join('\n') +
-      '\n\n実践チャンネルでボタンを押して記録しましょう！💪'
+      '\n\nまずはコンテンツで学習して「学習完了」ボタンを押しましょう！📖'
+    )
+    .setColor(COLORS.primary)
+    .setTimestamp();
+}
+
+/**
+ * パターン2: 学習済みだが実践していない
+ */
+export function buildLearnedNotPracticedReminderEmbed(members, thresholdDays) {
+  const lines = members.map((m) =>
+    `<@${m.user_id}> - 学習完了から${m.learning_days_ago}日経過`
+  );
+
+  return new EmbedBuilder()
+    .setTitle('🎯 実践リマインダー')
+    .setDescription(
+      `以下のメンバーは学習済みですが、まだ実践していません：\n\n` +
+      lines.join('\n') +
+      '\n\n学んだことを活かして、店舗でMNP契約に挑戦しましょう！💪\n' +
+      '実践が完了したら「実践完了！」ボタンを押してください。'
     )
     .setColor(COLORS.warning)
     .setTimestamp();
 }
 
-export function buildLearningReminderEmbed(member) {
+/**
+ * パターン3: 実践経験はあるが、しばらく実践していない
+ */
+export function buildPracticeInactiveReminderEmbed(members, thresholdDays) {
+  const lines = members.map((m) =>
+    `<@${m.user_id}> - 最後の実践: ${m.days_ago}日前`
+  );
+
   return new EmbedBuilder()
-    .setTitle('📚 次は実践です！')
+    .setTitle('🔥 実践リマインダー')
     .setDescription(
-      `<@${member.user_id}> さん、学習お疲れ様でした！\n\n` +
-      '次のステップは **店舗でのMNP契約** です。\n' +
-      '学んだことを活かして、実践に挑戦してみましょう！\n\n' +
-      '実践が完了したら「実践完了！」ボタンを押してください。'
+      `以下のメンバーが **${thresholdDays}日以上** 実践を記録していません：\n\n` +
+      lines.join('\n') +
+      '\n\n継続は力なり！次の実践に挑戦しましょう！🚀'
     )
-    .setColor(COLORS.success);
+    .setColor(COLORS.danger)
+    .setTimestamp();
 }

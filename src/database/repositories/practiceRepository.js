@@ -65,26 +65,3 @@ export function getTodayCount(guildId) {
   `).get(guildId);
   return row.count;
 }
-
-export function getMembersWhoLearnedButNotPracticed(guildId, thresholdDays) {
-  const db = getDatabase();
-  return db.prepare(`
-    SELECT
-      tm.user_id,
-      tm.username,
-      MAX(CASE WHEN pl.action_type = 'learning' THEN pl.practiced_at END) AS last_learning,
-      MAX(CASE WHEN pl.action_type = 'practice' THEN pl.practiced_at END) AS last_practice,
-      CAST(julianday('now') - julianday(
-        MAX(CASE WHEN pl.action_type = 'learning' THEN pl.practiced_at END)
-      ) AS INTEGER) AS learning_days_ago
-    FROM tracked_members tm
-    LEFT JOIN practice_logs pl
-      ON tm.guild_id = pl.guild_id AND tm.user_id = pl.user_id
-    WHERE tm.guild_id = ?
-      AND tm.is_active = 1
-    GROUP BY tm.user_id
-    HAVING last_learning IS NOT NULL
-      AND (last_practice IS NULL OR last_practice < last_learning)
-      AND last_learning < datetime('now', ? || ' days')
-  `).all(guildId, `-${thresholdDays}`);
-}
