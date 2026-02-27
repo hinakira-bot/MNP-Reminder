@@ -2,7 +2,6 @@ import { logger } from '../utils/logger.js';
 import * as settingsRepo from '../database/repositories/settingsRepository.js';
 import * as memberRepo from '../database/repositories/memberRepository.js';
 import {
-  buildLearnedNotPracticedReminderEmbed,
   buildPracticeInactiveReminderEmbed,
 } from '../utils/embedBuilder.js';
 
@@ -22,16 +21,7 @@ export async function runInactivityCheck(guildId, client) {
     const defaultDays = settings.reminder_days;
     let totalCount = 0;
 
-    // パターン1: 学習済みだが実践していない（個別閾値対応）
-    const learnedNotPracticed = memberRepo.getMembersLearnedNotPracticed(guildId, defaultDays);
-    if (learnedNotPracticed.length > 0) {
-      const embed = buildLearnedNotPracticedReminderEmbed(learnedNotPracticed, defaultDays);
-      await channel.send({ embeds: [embed] });
-      totalCount += learnedNotPracticed.length;
-      logger.info(`リマインド送信: ${learnedNotPracticed.length}人 (学習済み・未実践)`);
-    }
-
-    // パターン2: 実践経験はあるが、しばらく実践していない（個別閾値対応）
+    // 実践経験はあるが、しばらく実践していない（個別閾値対応）
     const practiceInactive = memberRepo.getMembersPracticeInactive(guildId, defaultDays);
     if (practiceInactive.length > 0) {
       const embed = buildPracticeInactiveReminderEmbed(practiceInactive, defaultDays);

@@ -41,33 +41,6 @@ export function setMemberReminderDays(guildId, userId, days) {
 }
 
 /**
- * 学習済みだが実践していない（個別閾値対応）
- * COALESCE で個人設定 → サーバーデフォルトの順にフォールバック
- */
-export function getMembersLearnedNotPracticed(guildId, defaultDays) {
-  const db = getDatabase();
-  return db.prepare(`
-    SELECT
-      tm.user_id,
-      tm.username,
-      COALESCE(tm.reminder_days, ?) AS effective_days,
-      MAX(CASE WHEN pl.action_type = 'learning' THEN pl.practiced_at END) AS last_learning,
-      CAST(julianday('now') - julianday(
-        MAX(CASE WHEN pl.action_type = 'learning' THEN pl.practiced_at END)
-      ) AS INTEGER) AS learning_days_ago
-    FROM tracked_members tm
-    LEFT JOIN practice_logs pl
-      ON tm.guild_id = pl.guild_id AND tm.user_id = pl.user_id
-    WHERE tm.guild_id = ?
-      AND tm.is_active = 1
-    GROUP BY tm.user_id
-    HAVING last_learning IS NOT NULL
-      AND MAX(CASE WHEN pl.action_type = 'practice' THEN pl.practiced_at END) IS NULL
-      AND julianday('now') - julianday(last_learning) >= COALESCE(tm.reminder_days, ?)
-  `).all(defaultDays, guildId, defaultDays);
-}
-
-/**
  * 実践経験はあるが、閾値日数以上実践していない（個別閾値対応）
  */
 export function getMembersPracticeInactive(guildId, defaultDays) {

@@ -1,7 +1,7 @@
 import { getDatabase } from '../connection.js';
 
 /**
- * @param {'practice' | 'learning'} actionType
+ * @param {'practice'} actionType
  */
 export function recordAction(guildId, userId, actionType = 'practice') {
   const db = getDatabase();
@@ -41,8 +41,7 @@ export function getLeaderboard(guildId, days = 30, limit = 10) {
     SELECT
       tm.user_id,
       tm.username,
-      COUNT(CASE WHEN pl.action_type = 'practice' THEN 1 END) AS practice_count,
-      COUNT(CASE WHEN pl.action_type = 'learning' THEN 1 END) AS learning_count
+      COUNT(CASE WHEN pl.action_type = 'practice' THEN 1 END) AS practice_count
     FROM tracked_members tm
     LEFT JOIN practice_logs pl
       ON tm.guild_id = pl.guild_id
@@ -51,7 +50,7 @@ export function getLeaderboard(guildId, days = 30, limit = 10) {
     WHERE tm.guild_id = ?
       AND tm.is_active = 1
     GROUP BY tm.user_id
-    ORDER BY practice_count DESC, learning_count DESC
+    ORDER BY practice_count DESC
     LIMIT ?
   `).all(`-${days}`, guildId, limit);
 }
