@@ -33,10 +33,21 @@ async function handlePractice(interaction, guildId, user) {
   logger.info(`実践記録: ${user.username} (${guildId})`);
 
   // Ephemeral confirmation to the user
-  await interaction.reply({
-    content: `🎯 **実践完了を記録しました！お疲れ様です！**\n今月の実践回数: **${count}回** ／ 累計: **${totalCount}回**`,
-    ephemeral: true,
-  });
+  try {
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: `🎯 **実践完了を記録しました！お疲れ様です！**\n今月の実践回数: **${count}回** ／ 累計: **${totalCount}回**`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: `🎯 **実践完了を記録しました！お疲れ様です！**\n今月の実践回数: **${count}回** ／ 累計: **${totalCount}回**`,
+        ephemeral: true,
+      });
+    }
+  } catch (err) {
+    logger.warn(`インタラクション応答失敗: ${err.message}`);
+  }
 
   const settings = settingsRepo.getSettings(guildId);
 
