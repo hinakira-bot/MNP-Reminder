@@ -8,6 +8,22 @@ export const data = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export async function execute(interaction) {
+  // 古いボタンメッセージがあれば削除
+  const settings = settingsRepo.getSettings(interaction.guildId);
+  if (settings.practice_message_id && settings.practice_channel_id) {
+    try {
+      const oldChannel = await interaction.client.channels.fetch(settings.practice_channel_id).catch(() => null);
+      if (oldChannel) {
+        const oldMessage = await oldChannel.messages.fetch(settings.practice_message_id).catch(() => null);
+        if (oldMessage) {
+          await oldMessage.delete();
+        }
+      }
+    } catch (err) {
+      // 古いメッセージが見つからなくても続行
+    }
+  }
+
   const { embed, row } = buildSetupEmbed();
   const message = await interaction.channel.send({ embeds: [embed], components: [row] });
 
