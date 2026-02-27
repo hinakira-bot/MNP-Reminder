@@ -67,9 +67,23 @@ async function handlePractice(interaction, guildId, user) {
     ephemeral: true,
   });
 
+  const settings = settingsRepo.getSettings(guildId);
+
+  // Assign practice role if configured
+  try {
+    if (settings.practice_role_id) {
+      const member = await interaction.guild.members.fetch(user.id);
+      if (!member.roles.cache.has(settings.practice_role_id)) {
+        await member.roles.add(settings.practice_role_id);
+        logger.info(`ロール付与: ${user.username} に ${settings.practice_role_id}`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`ロール付与失敗: ${err.message}`);
+  }
+
   // Public celebration in report channel (or fallback to same channel)
   try {
-    const settings = settingsRepo.getSettings(guildId);
     let reportChannel = interaction.channel;
     if (settings.report_channel_id) {
       reportChannel = await interaction.client.channels.fetch(settings.report_channel_id).catch(() => interaction.channel);

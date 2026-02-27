@@ -22,6 +22,7 @@ export function initializeSchema() {
       guild_id        TEXT NOT NULL,
       user_id         TEXT NOT NULL,
       username        TEXT NOT NULL,
+      reminder_days   INTEGER,
       registered_at   TEXT NOT NULL DEFAULT (datetime('now')),
       is_active       INTEGER NOT NULL DEFAULT 1,
       UNIQUE(guild_id, user_id)
@@ -48,11 +49,14 @@ export function initializeSchema() {
       ON practice_logs(guild_id, user_id, action_type, practiced_at DESC);
   `);
 
-  // Migration: add report_channel_id if not exists
-  try {
-    db.exec('ALTER TABLE guild_settings ADD COLUMN report_channel_id TEXT');
-  } catch {
-    // Column already exists, ignore
+  // Migrations
+  const migrations = [
+    'ALTER TABLE guild_settings ADD COLUMN report_channel_id TEXT',
+    'ALTER TABLE guild_settings ADD COLUMN practice_role_id TEXT',
+    'ALTER TABLE tracked_members ADD COLUMN reminder_days INTEGER',
+  ];
+  for (const sql of migrations) {
+    try { db.exec(sql); } catch { /* Column already exists */ }
   }
 
   logger.info('データベーススキーマを初期化しました');

@@ -2,7 +2,6 @@ import { logger } from '../utils/logger.js';
 import * as settingsRepo from '../database/repositories/settingsRepository.js';
 import * as memberRepo from '../database/repositories/memberRepository.js';
 import {
-  buildNotStartedReminderEmbed,
   buildLearnedNotPracticedReminderEmbed,
   buildPracticeInactiveReminderEmbed,
 } from '../utils/embedBuilder.js';
@@ -20,34 +19,25 @@ export async function runInactivityCheck(guildId, client) {
       return { error: 'リマインドチャンネルが見つかりません。再設定してください。' };
     }
 
-    const days = settings.reminder_days;
+    const defaultDays = settings.reminder_days;
     let totalCount = 0;
 
-    // パターン1: 学習も実践もしていない（未着手）
-    const notStarted = memberRepo.getMembersNotStarted(guildId, days);
-    if (notStarted.length > 0) {
-      const embed = buildNotStartedReminderEmbed(notStarted, days);
-      await channel.send({ embeds: [embed] });
-      totalCount += notStarted.length;
-      logger.info(`リマインド送信: ${notStarted.length}人 (未着手)`);
-    }
-
-    // パターン2: 学習済みだが実践していない
-    const learnedNotPracticed = memberRepo.getMembersLearnedNotPracticed(guildId, days);
+    // パターン1: 学習済みだが実践していない（個別閾値対応）
+    const learnedNotPracticed = memberRepo.getMembersLearnedNotPracticed(guildId, defaultDays);
     if (learnedNotPracticed.length > 0) {
-      const embed = buildLearnedNotPracticedReminderEmbed(learnedNotPracticed, days);
+      const embed = buildLearnedNotPracticedReminderEmbed(learnedNotPracticed, defaultDays);
       await channel.send({ embeds: [embed] });
       totalCount += learnedNotPracticed.length;
       logger.info(`リマインド送信: ${learnedNotPracticed.length}人 (学習済み・未実践)`);
     }
 
-    // パターン3: 実践経験はあるが、しばらく実践していない
-    const practiceInactive = memberRepo.getMembersPracticeInactive(guildId, days);
+    // パターン2: 実践経験はあるが、しばらく実践していない（個別閾値対応）
+    const practiceInactive = memberRepo.getMembersPracticeInactive(guildId, defaultDays);
     if (practiceInactive.length > 0) {
-      const embed = buildPracticeInactiveReminderEmbed(practiceInactive, days);
+      const embed = buildPracticeInactiveReminderEmbed(practiceInactive, defaultDays);
       await channel.send({ embeds: [embed] });
       totalCount += practiceInactive.length;
-      logger.info(`リマインド送信: ${practiceInactive.length}人 (実践が${days}日以上前)`);
+      logger.info(`リマインド送信: ${practiceInactive.length}人 (実践が${defaultDays}日以上前)`);
     }
 
     return { count: totalCount };

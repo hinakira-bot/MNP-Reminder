@@ -45,6 +45,14 @@ export function setReportChannelId(guildId, channelId) {
   ).run(channelId, guildId);
 }
 
+export function setPracticeRoleId(guildId, roleId) {
+  const db = getDatabase();
+  getSettings(guildId);
+  db.prepare(
+    "UPDATE guild_settings SET practice_role_id = ?, updated_at = datetime('now') WHERE guild_id = ?"
+  ).run(roleId, guildId);
+}
+
 export function setPracticeChannel(guildId, channelId, messageId) {
   const db = getDatabase();
   getSettings(guildId);
