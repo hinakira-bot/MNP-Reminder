@@ -4,8 +4,20 @@ import * as memberRepo from '../database/repositories/memberRepository.js';
 import * as practiceRepo from '../database/repositories/practiceRepository.js';
 import * as settingsRepo from '../database/repositories/settingsRepository.js';
 
+// 重複インタラクション防止用セット（同じインタラクションIDの二重処理を防ぐ）
+const processedInteractions = new Set();
+
 export async function handleButton(interaction) {
   const { customId, guildId, user } = interaction;
+
+  // 重複チェック：同じインタラクションIDが既に処理中なら無視
+  if (processedInteractions.has(interaction.id)) {
+    logger.warn(`重複インタラクション検出・スキップ: ${interaction.id}`);
+    return;
+  }
+  processedInteractions.add(interaction.id);
+  // 60秒後にセットから削除（メモリリーク防止）
+  setTimeout(() => processedInteractions.delete(interaction.id), 60000);
 
   if (customId === 'mnp_practice_complete') {
     return handlePractice(interaction, guildId, user);
@@ -18,7 +30,12 @@ async function handlePractice(interaction, guildId, user) {
   if (last) {
     const elapsed = (Date.now() - new Date(last.practiced_at + 'Z').getTime()) / 1000;
     if (elapsed < config.buttonCooldownSeconds) {
-      return interaction.reply({ content: '🎯 既に記録済みです！', ephemeral: true });
+      try {
+        await interaction.reply({ content: '🎯 既に記録済みです！', ephemeral: true });
+      } catch (err) {
+        // ignore
+      }
+      return;
     }
   }
 
@@ -30,7 +47,7 @@ async function handlePractice(interaction, guildId, user) {
   const count = practiceRepo.getMonthlyCount(guildId, user.id, 'practice');
   const totalCount = practiceRepo.getActionCount(guildId, user.id, 'practice');
 
-  logger.info(`実践記録: ${user.username} (${guildId})`);
+  logger.info(`実践記録: ${user.username} (${guildId}) [interaction: ${interaction.id}]`);
 
   // Ephemeral confirmation to the user
   try {
